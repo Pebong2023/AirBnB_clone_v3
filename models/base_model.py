@@ -1,148 +1,97 @@
 #!/usr/bin/python3
 """
-Unit Test for BaseModel Class
+BaseModel Class of Models Module
 """
-import unittest
-from datetime import datetime
-import models
-import json
-import os
 
-BaseModel = models.base_model.BaseModel
+import os
+import json
+import models
+from uuid import uuid4, UUID
+from datetime import datetime
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, Float, DateTime
+
 storage_type = os.environ.get('HBNB_TYPE_STORAGE')
 
-
-class TestBaseModelDocs(unittest.TestCase):
-    """Class for testing BaseModel docs"""
-
-    @classmethod
-    def setUpClass(cls):
-        print('\n\n.................................')
-        print('..... Testing Documentation .....')
-        print('.....  For BaseModel Class  .....')
-        print('.................................\n\n')
-
-    def test_doc_file(self):
-        """... documentation for the file"""
-        expected = '\nBaseModel Class of Models Module\n'
-        actual = models.base_model.__doc__
-        self.assertEqual(expected, actual)
-
-    def test_doc_init(self):
-        """... documentation for init function"""
-        expected = 'instantiation of new BaseModel Class'
-        actual = BaseModel.__init__.__doc__
-        self.assertEqual(expected, actual)
-
-    def test_doc_save(self):
-        """... documentation for save function"""
-        expected = 'updates attribute updated_at to current time'
-        actual = BaseModel.save.__doc__
-        self.assertEqual(expected, actual)
-
-    def test_doc_to_json(self):
-        """... documentation for to_json function"""
-        expected = 'returns json representation of self'
-        actual = BaseModel.to_json.__doc__
-        self.assertEqual(expected, actual)
-
-    def test_doc_str(self):
-        """... documentation for to str function"""
-        expected = 'returns string type representation of object instance'
-        actual = BaseModel.__str__.__doc__
-        self.assertEqual(expected, actual)
+"""
+    Creates instance of Base if storage type is a database
+    If not database storage, uses class Base
+"""
+if storage_type == 'db':
+    Base = declarative_base()
+else:
+    class Base:
+        pass
 
 
-class TestBaseModelInstances(unittest.TestCase):
-    """testing for class instances"""
+class BaseModel:
+    """
+        attributes and functions for BaseModel class
+    """
 
-    @classmethod
-    def setUpClass(cls):
-        print('\n\n.................................')
-        print('....... Testing Functions .......')
-        print('.....  For BaseModel Class  .....')
-        print('.................................\n\n')
+    if storage_type == 'db':
+        id = Column(String(60), nullable=False, primary_key=True)
+        created_at = Column(DateTime, nullable=False,
+                            default=datetime.utcnow())
+        updated_at = Column(DateTime, nullable=False,
+                            default=datetime.utcnow())
 
-    def setUp(self):
-        """initializes new BaseModel instance for testing"""
-        self.model = BaseModel()
+    def __init__(self, *args, **kwargs):
+        """instantiation of new BaseModel Class"""
+        self.id = str(uuid4())
+        self.created_at = datetime.now()
+        if kwargs:
+            for key, value in kwargs.items():
+                setattr(self, key, value)
 
-    def test_instantiation(self):
-        """... checks if BaseModel is properly instantiated"""
-        self.assertIsInstance(self.model, BaseModel)
-
-    @unittest.skipIf(storage_type == 'db', 'skip if environ is db')
-    def test_to_string(self):
-        """... checks if BaseModel is properly casted to string"""
-        my_str = str(self.model)
-        my_list = ['BaseModel', 'id', 'created_at']
-        actual = 0
-        for sub_str in my_list:
-            if sub_str in my_str:
-                actual += 1
-        self.assertTrue(3 == actual)
-
-    @unittest.skipIf(storage_type == 'db', 'skip if environ is db')
-    def test_to_string(self):
-        """... checks if BaseModel is properly casted to string"""
-        my_str = str(self.model)
-        my_list = ['BaseModel', 'id', 'created_at']
-        actual = 0
-        for sub_str in my_list:
-            if sub_str in my_str:
-                actual += 1
-        self.assertTrue(3 == actual)
-
-    @unittest.skipIf(storage_type == 'db', 'skip if environ is db')
-    def test_instantiation_no_updated(self):
-        """... should not have updated attribute"""
-        my_str = str(self.model)
-        actual = 0
-        if 'updated_at' in my_str:
-            actual += 1
-        self.assertTrue(0 == actual)
-
-    @unittest.skipIf(storage_type == 'db', 'skip if environ is db')
-    def test_save(self):
-        """... save function should add updated_at attribute"""
-        self.model.save()
-        actual = type(self.model.updated_at)
-        expected = type(datetime.now())
-        self.assertEqual(expected, actual)
-
-    @unittest.skipIf(storage_type == 'db', 'skip if environ is db')
-    def test_to_json(self):
-        """... to_json should return serializable dict object"""
-        my_model_json = self.model.to_json()
-        actual = 1
+    def __is_serializable(self, obj_v):
+        """
+            private: checks if object is serializable
+        """
         try:
-            serialized = json.dumps(my_model_json)
+            obj_to_str = json.dumps(obj_v)
+            return obj_to_str is not None and isinstance(obj_to_str, str)
         except:
-            actual = 0
-        self.assertTrue(1 == actual)
+            return False
 
-    @unittest.skipIf(storage_type == 'db', 'skip if environ is db')
-    def test_json_class(self):
-        """... to_json should include class key with value BaseModel"""
-        my_model_json = self.model.to_json()
-        actual = None
-        if my_model_json['__class__']:
-            actual = my_model_json['__class__']
-        expected = 'BaseModel'
-        self.assertEqual(expected, actual)
+    def bm_update(self, name, value):
+        """
+            updates the basemodel and sets the correct attributes
+        """
+        setattr(self, name, value)
+        if storage_type != 'db':
+            self.save()
 
-    def test_name_attribute(self):
-        """... add name attribute"""
-        self.model.name = "Holberton"
-        actual = self.model.name
-        expected = "Holberton"
-        self.assertEqual(expected, actual)
+    def save(self):
+        """updates attribute updated_at to current time"""
+        if storage_type != 'db':
+            self.updated_at = datetime.now()
+        models.storage.new(self)
+        models.storage.save()
 
-    def test_number_attribute(self):
-        """... add number attribute"""
-        self.model.number = 98
-        actual = self.model.number
-        self.assertTrue(98 == actual)
+    def to_json(self):
+        """returns json representation of self"""
+        bm_dict = {}
+        for key, value in (self.__dict__).items():
+            if (self.__is_serializable(value)):
+                bm_dict[key] = value
+            else:
+                bm_dict[key] = str(value)
+        bm_dict['__class__'] = type(self).__name__
+        if '_sa_instance_state' in bm_dict:
+            bm_dict.pop('_sa_instance_state')
+        if storage_type == "db" and 'password' in bm_dict:
+            bm_dict.pop('password')
+        return bm_dict
 
-if __name__ == '__main__':
-    unittest.main
+    def __str__(self):
+        """returns string type representation of object instance"""
+        class_name = type(self).__name__
+        return '[{}] ({}) {}'.format(class_name, self.id, self.__dict__)
+
+    def delete(self):
+        """
+            deletes current instance from storage
+        """
+        self.delete()
+
